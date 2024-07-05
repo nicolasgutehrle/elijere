@@ -14,7 +14,7 @@ import networkx as nx
 from collections import Counter
 from networkx.algorithms.isomorphism import DiGraphMatcher
 
-from utils.utils import nodeEq, edgeEq, getTmpDictProp, getNodeText, vizGraph, doc2graph, node_subst_cost, node_del_cost, node_ins_cost, edge_subst_cost, edge_del_cost, edge_ins_cost
+from utils.utils import nodeEq, edgeEq, getRelationNames, getNodeText, vizGraph, doc2graph, node_subst_cost, node_del_cost, node_ins_cost, edge_subst_cost, edge_del_cost, edge_ins_cost
 # getGraphPaths
 
 # from nltk import ngrams
@@ -164,7 +164,7 @@ class SyntacticIndex:
             anchortext = anchor_node
         return anchor_node, anchortext
 
-    def trainSyntacticIndex(self, list_graphs: List[dict], anchor_textvalue: str, graphkey:str='graph', propkey:str='prop', dict_prop:dict = {}, support:int=0, savepath:str='') -> None:
+    def trainSyntacticIndex(self, list_graphs: List[dict], anchor_textvalue: str, graphkey:str='graph', propkey:str='prop', dict_rel:dict = {}, support:int=0, savepath:str='') -> None:
         """
         Learns Syntactic Index from SDP graphs
 
@@ -211,9 +211,9 @@ class SyntacticIndex:
                     # gets count of prop
                     props = [candidate[propkey]] + list(map(lambda x: x[propkey], identicals))
 
-                    # dict_prop replaces property ID by given label
-                    if dict_prop:
-                        tmp_dict = getTmpDictProp(dict_prop=dict_prop)
+                    # dict_rel replaces property ID by given label
+                    if dict_rel:
+                        tmp_dict = getRelationNames(dict_rel=dict_rel)
 
                         props = [
                             { "name": tmp_dict[k], "support": v}
@@ -497,10 +497,10 @@ class SemanticIndex():
         terms = self.semanticIndex.loc[list_terms]
         return terms
 
-    # def trainSemanticIndex(self, list_graphs: List[dict], textvalue: str, pos_filter:List[str]=[], ngram_size:int=0, dict_prop: dict = {}, removePROPN: bool = True, min_weight:float=0 ,savepath: str='') -> None:
+    # def trainSemanticIndex(self, list_graphs: List[dict], textvalue: str, pos_filter:List[str]=[], ngram_size:int=0, dict_rel: dict = {}, removePROPN: bool = True, min_weight:float=0 ,savepath: str='') -> None:
 
 
-    def trainSemanticIndex(self, list_graphs: List[dict], textvalue: str, pos_filter:List[str]=[], dict_prop: dict = {}, 
+    def trainSemanticIndex(self, list_graphs: List[dict], textvalue: str, pos_filter:List[str]=[], dict_rel: dict = {}, 
                            removePROPN: bool = True, min_weight:float=0 ,savepath: str='') -> None:
         """
         Calculates an ESA matrix where rows are words and columns are concepts / classes.
@@ -513,8 +513,8 @@ class SemanticIndex():
         :type textvalue: str
         :param pos_filter: List of POS tags to select what nodes to keep. If None, keeps all the tags, defaults to None
         :type pos_filter: List[str], optional
-        :param dict_prop: Dictionary of properties, i.e. the columns of the matrix
-        :type dict_prop: dict
+        :param dict_rel: Dictionary of properties, i.e. the columns of the matrix
+        :type dict_rel: dict
         :param removePROPN: Whether PROPN tags are removed or not
         :type removePROPN: bool
         :param savepath: Path to save semantic index, defaults to None
@@ -541,7 +541,6 @@ class SemanticIndex():
         df_tf = pd.DataFrame.from_dict(dict_freqs)
         df_tf.fillna(0, inplace=True)
 
-        print(df_tf.to_latex())
         df_tf['CONCEPT-INDEX'] = list(index)
         # groups each doc by its class, then sums up the value of the tokens
         # the matrix is transposed so as to have a token x concept shape
@@ -550,8 +549,8 @@ class SemanticIndex():
         vec_freq = tfidf.fit_transform(df_tf)
         semantic_index = pd.DataFrame(vec_freq.todense(), columns=df_tf.columns, index=df_tf.index)
         # needed to rename classes to explicit name
-        if dict_prop:
-            tmp_dict = getTmpDictProp(dict_prop=dict_prop)
+        if dict_rel:
+            tmp_dict = getRelationNames(dict_rel=dict_rel)
             # print(tmp_dict)
             s = semantic_index.columns.to_series()
             semantic_index.columns = s.map(tmp_dict).fillna(s)
@@ -563,19 +562,19 @@ class SemanticIndex():
         semantic_index[semantic_index < min_weight] = 0
 
         if savepath:
-            self.saveSemanticIndex(savepath, semantic_index, textvalue, pos_filter, ngram_size, dict_prop, removePROPN) 
+            self.saveSemanticIndex(savepath, semantic_index, textvalue, pos_filter, dict_rel, removePROPN) 
 
 
         self.semanticIndex = semantic_index
         self.semanticIndexParams = {
             "textvalue":  textvalue,
             "pos_filter": pos_filter,
-            "ngram_size": ngram_size,
-            "dict_prop": dict_prop,
+            # "ngram_size": ngram_size,
+            "dict_rel": dict_rel,
             "removePROPN": removePROPN
         }
 
-    def saveSemanticIndex(self, savepath: str, semantic_index: pd.DataFrame, textvalue: str, pos_filter: List[str], ngram_size:int, dict_prop:dict, removePROPN:bool) -> None:
+    def saveSemanticIndex(self, savepath: str, semantic_index: pd.DataFrame, textvalue: str, pos_filter: List[str], dict_rel:dict, removePROPN:bool) -> None:
         """
         Save semantic index on disk as a "semanticIndex" folder contianing the matrix as a CSV
 
@@ -587,10 +586,8 @@ class SemanticIndex():
         :type textvalue: str
         :param pos_filter: List of POS tags to select tokens to keep
         :type pos_filter: List[str]
-        :param ngram_size: Size of the n-gram, if any
-        :type ngram_size: int
-        :param dict_prop: Dictionary of properties, i.e. the columns of the matrix
-        :type dict_prop: dict
+        :param dict_rel: Dictionary of properties, i.e. the columns of the matrix
+        :type dict_rel: dict
         :param removePROPN: Whether PROPN tags are removed or not
         :type removePROPN: bool
         """
@@ -599,8 +596,7 @@ class SemanticIndex():
         params = {
             "textvalue": textvalue,
             "pos_filter": pos_filter,
-            "ngram_size": ngram_size,
-            "dict_prop": dict_prop,
+            "dict_rel": dict_rel,
             "removePROPN": removePROPN
         }
 
