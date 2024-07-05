@@ -579,9 +579,36 @@ def edge_ins_cost(node):
     # return 0
     return 1  # here you apply the cost for edge insertion
 
+def balanceRelationDataset(corpus: List[dict], upper_limit:int) -> List[dict]:
+    """
+    Simple helper function to balance the relation dataset from the bottom. Makes sure there are no more instances than the upper limit for each relation.
+
+    :param corpus: Dataset to process
+    :type corpus: List[dict]
+    :param upper_limit: Upper maximum of relation in the dataset
+    :type upper_limit: int
+    :return: Balanced dataset
+    :rtype: List[dict]
+    """
+
+    tmp_dict = defaultdict(int)
+
+    for doc in corpus:
+        for cont in doc['content']:
+            count = Counter(prop['prop'] for prop in cont['props'])
+            for k,v in count.most_common():
+                if tmp_dict[k] < upper_limit: 
+                    tmp_dict[k]+=v
+                else:
+                    cont['props'] = [x for x in cont['props'] if x['prop'] != k]
+
+    for c in corpus:
+        c['content'] = [x for x in c['content'] if x['props']]
+    corpus = [x for x in corpus if x['content']]
+    return corpus 
 
 
-def getTmpDictProp(dict_rel:dict) -> dict:
+def getRelationNames(dict_rel:dict) -> dict:
     """
     Helper function to get mapping between properties and their labels
 
