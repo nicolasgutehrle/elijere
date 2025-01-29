@@ -1,0 +1,4 @@
+src/projects
+.DS_Store
+**__pycache__
+**_checkpoints
