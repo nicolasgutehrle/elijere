@@ -14,7 +14,7 @@ import networkx as nx
 from collections import Counter
 from networkx.algorithms.isomorphism import DiGraphMatcher
 
-from utils.utils import nodeEq, edgeEq, getRelationNames, getNodeText, vizGraph, doc2graph, node_subst_cost, node_del_cost, node_ins_cost, edge_subst_cost, edge_del_cost, edge_ins_cost
+from .utils import nodeEq, edgeEq, getRelationNames, getNodeText, vizGraph, doc2graph, node_subst_cost, node_del_cost, node_ins_cost, edge_subst_cost, edge_del_cost, edge_ins_cost
 # getGraphPaths
 
 # from nltk import ngrams

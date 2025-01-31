@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 from typing import List, Callable, TypeVar
 from multiprocessing.dummy import Pool
 import os
-from segmenter.segmenter import Segmenter
+# from segmenter.segmenter import Segmenter
 
 from datetime import datetime
 from babel.dates import format_date
@@ -17,9 +17,9 @@ import pandas as pd
 from glob import glob
 import json
 from itertools import groupby
-from utils.utils import saveWhatLinksHere, saveWikidataLinks, loadWhatLinksHereLinks, saveEntitiesData, getRelationNames
+from .utils import saveWhatLinksHere, saveWikidataLinks, loadWhatLinksHereLinks, saveEntitiesData, getRelationNames
 import spacy
-from processing.processor import TextProcessor
+from .processor import TextProcessor
 
 
 class WhatLinksHere:
@@ -38,7 +38,7 @@ class WhatLinksHere:
 
     def collect_Wikidata_links(self, dict_rel:dict, limit: int = 100, m_size: int = 0, save_step: int = 10, folderpath: str="", n_core:int=4)  -> List[str]:
 
-        entitytype = {x['type']: x['name'] for x in dict_rel}
+        entitytype = {x['type']: x['label'] for x in dict_rel}
 
         list_urls = self.getWhatLinksHere(entitytype, limit, m_size, save_step, folderpath)
         list_entities = self.multi_getWikidataLinks(list_urls, n_core, folderpath)
@@ -233,16 +233,17 @@ class DARES:
 
         self.dict_rel = dict_rel
 
-        self.entitytype = {x['type']: x['name'] for x in dict_rel}
+        # self.entitytype = {x['type']: x['name'] for x in dict_rel}
 
         self.relation_names = getRelationNames(dict_rel)
 
         with open(f'{self.project_path}/dict_rel.json', 'w', encoding='utf-8') as f:
             json.dump(dict_rel, f, indent=4)
 
-        with open(f'{self.project_path}/entity_type.json', 'w', encoding='utf-8') as f:
-            json.dump(self.entitytype, f, indent=4)
+        # with open(f'{self.project_path}/entity_type.json', 'w', encoding='utf-8') as f:
+        #     json.dump(self.entitytype, f, indent=4)
 
+        # TODO : corriger relation_names
         with open(f'{self.project_path}/relation_names.json', 'w', encoding='utf-8') as f:
             json.dump(self.relation_names, f, indent=4)
 
@@ -744,14 +745,23 @@ class DARES:
                     if sim > 0:
                         func_append(
                             {
-                                "prop": prop_data['propertyID'],
+                                "prop": self.relation_names[prop_data['propertyID']]['label'],
                                 "sent": sent,
                                 'source': source_value,
-                                "source_type": entityData['type'],
+                                "source_type": self.relation_names[prop_data['propertyID']]['source'],
                                 "target": target_label,
-                                "target_type": target_type
+                                "target_type": self.relation_names[prop_data['propertyID']]['target']
                                 # "sim": sim
                             }
+                            # {
+                            #     "prop": prop_data['propertyID'],
+                            #     "sent": sent,
+                            #     'source': source_value,
+                            #     "source_type": entityData['type'],
+                            #     "target": target_label,
+                            #     "target_type": target_type
+                            #     # "sim": sim
+                            # }
                             )
 
             prop_data['sents'] = selected_sents
@@ -930,14 +940,19 @@ class DARES:
             return list_entities_data
     
     def extract_sdp(self, removeNoMatch:bool=True, keep_filter_prop:List[str]=[], n_core:int=4) :
+        
         if keep_filter_prop:
             keep_filter_prop = keep_filter_prop
         else: 
-            keep_filter_prop = list(self.relation_names.keys())
-
+            # keep_filter_prop = list(self.relation_names.keys())
+            keep_filter_prop = [x['label'] for x in self.relation_names.values()]
+        
+        # print(keep_filter_prop)
         corpus = self.tp.prepare_corpus(list_entities_data=self.list_entities_data, removeNoMatch=removeNoMatch, keep_filter_prop=keep_filter_prop, n_core=n_core)
+        # print(corpus)
+        
         corpus = self.tp.processCorpus(corpus=corpus, savepath=self.project_path)
+        
 
-        print("Length corpus:", len(corpus)) 
-        print(corpus[0])
+        # print("Length corpus:", len(corpus)) 
         return corpus

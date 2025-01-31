@@ -19,12 +19,13 @@ import networkx as nx
 import pandas as pd
 from itertools import groupby
 
-from utils.utils import saveCorpus, saveDocument, doc2graph
+from .utils import saveCorpus, saveDocument, doc2graph
 
 # print('TP')
 
 class TextProcessor:
         # re_brackets = re.compile(r'(\(|\[)+[^\)\]]*(\)|\])+')
+        
     re_doublespaces = re.compile(r' {2,}')
     re_spacecomma = re.compile(r' ,')
     re_start_trailings = re.compile(r'^(,? |-|")')

@@ -608,21 +608,27 @@ def balanceRelationDataset(corpus: List[dict], upper_limit:int) -> List[dict]:
     return corpus 
 
 
-def getRelationNames(dict_rel:dict) -> dict:
-    """
-    Helper function to get mapping between properties and their labels
+def getRelationNames(dict_rel:List[dict]) -> dict:
+    all_rels = {}
+    for d in dict_rel:
+        all_rels.update(d['props'])
+    return all_rels
 
-    :param dict_rel: original dict_rel 
-    :type dict_rel: dict
-    :return: dictionnary containing the mapping
-    :rtype: dict
-    """
-    tmp_dict = dict_rel[0]['props']
-    func_update = tmp_dict.update
-    for d in dict_rel[1:]:
-        func_update(d['props'])
-    tmp_dict['Other'] = 'Other'
-    return tmp_dict
+# def getRelationNames(dict_rel:dict) -> dict:
+#     """
+#     Helper function to get mapping between properties and their labels
+
+#     :param dict_rel: original dict_rel 
+#     :type dict_rel: dict
+#     :return: dictionnary containing the mapping
+#     :rtype: dict
+#     """
+#     tmp_dict = dict_rel[0]['props']
+#     func_update = tmp_dict.update
+#     for d in dict_rel[1:]:
+#         func_update(d['props'])
+#     tmp_dict['Other'] = 'Other'
+#     return tmp_dict
 
 def doc2graph(doc: Doc) -> dict:
     """
