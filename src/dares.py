@@ -96,7 +96,7 @@ class WhatLinksHere:
 
         :param entitytype: type of entity to find
         :type entitytype: str
-        :param limit: limit of URL to process at the same time, defaults to 50
+        :param limit: limit of URL to process at the same time, defaults to 100
         :type limit: int, optional
         :param m_size: maximum of url to process, defaults to 0
         :type m_size: int, optional
@@ -207,50 +207,56 @@ class DARES:
     
     base_url_entity = "https://www.wikidata.org/wiki/Special:EntityData"
 
-    def __init__(self, lg:str, nlp_model:str) -> None:
-        """
-        WikidataParser, to parse and collect data about entities on Wikidata
+    # def __init__(self, lg:str, nlp_model:str) -> None:
+    def __init__(self, project_name:str, lg:str, spacy_model:str, n_core:int, dares_parameters:dict, entities:dict):
+        self.project_name = project_name
+        self.folderpath = f"projects/{project_name}"
+        os.makedirs(self.folderpath,exist_ok=True)
+        
+        self.lg = lg 
+        self.nlp = spacy.load(spacy_model)
+        self.n_core = n_core
+        self.parameters = dares_parameters
 
-        :param lg: Language in which to process data, especially for the sentence Segmenter
-        :type lg: str
-        """
-        self.lg = lg
-        # self.seg = Segmenter(self.lg)
-        self.nlp = spacy.load(nlp_model)
         self.wlh = WhatLinksHere()
         self.tp = TextProcessor(nlp=self.nlp)
 
-        # select type of Wikimedia content to process (e.g. Wikipedia, Wikinews...). Only tested with Wikipedia for now
-        self.source_doc = 'wikipedia'
+        # # select type of Wikimedia content to process (e.g. Wikipedia, Wikinews...). Only tested with Wikipedia for now
+        # self.source_doc = 'wikipedia'
 
-        # method to measure similarity during distant supervision step
+        # # method to measure similarity during distant supervision step
         self.scorer = fuzz.partial_ratio
 
-    def initiate_project(self, projectname:str, dict_rel:dict):
+        self.entities = entities
 
-        self.project_path = f"projects/{projectname}"
-        os.makedirs(self.project_path, exist_ok=True)
+        self.relation_names = getRelationNames(entities)
 
-        self.dict_rel = dict_rel
 
-        # self.entitytype = {x['type']: x['name'] for x in dict_rel}
+    # def initiate_project(self, projectname:str, dict_rel:dict):
 
-        self.relation_names = getRelationNames(dict_rel)
+    #     self.project_path = f"projects/{projectname}"
+    #     os.makedirs(self.project_path, exist_ok=True)
 
-        with open(f'{self.project_path}/dict_rel.json', 'w', encoding='utf-8') as f:
-            json.dump(dict_rel, f, indent=4)
 
-        # with open(f'{self.project_path}/entity_type.json', 'w', encoding='utf-8') as f:
-        #     json.dump(self.entitytype, f, indent=4)
+    #     # self.entitytype = {x['type']: x['name'] for x in dict_rel}
 
-        # TODO : corriger relation_names
-        with open(f'{self.project_path}/relation_names.json', 'w', encoding='utf-8') as f:
-            json.dump(self.relation_names, f, indent=4)
+
+    #     with open(f'{self.project_path}/dict_rel.json', 'w', encoding='utf-8') as f:
+    #         json.dump(dict_rel, f, indent=4)
+
+
+    #     with open(f'{self.project_path}/relation_names.json', 'w', encoding='utf-8') as f:
+    #         json.dump(self.relation_names, f, indent=4)
 
     
-    def collect_Wikidata_links(self, dict_rel:dict, limit: int = 100, m_size: int = 0, save_step: int = 10, n_core:int=4)  -> List[str]: 
-        
-        self.list_entities =  self.wlh.collect_Wikidata_links(dict_rel, limit, m_size, save_step, self.project_path, n_core)
+    def collect_Wikidata_links(self)  -> List[str]: 
+        dict_rel = self.entities
+        limit = self.parameters['item_limit']
+        m_size = self.parameters['items_per_pages']
+        save_step = self.parameters['item_save_step']
+        n_core = self.n_core
+        folderpath = self.folderpath
+        self.list_entities =  self.wlh.collect_Wikidata_links(dict_rel, limit, m_size, save_step, folderpath, n_core)
     
     
     def getWhatLinksHere(self, entitytype:str, limit: int = 100, m_size: int = 0, save_step: int = 10, folderpath: str="") -> List[str]:
@@ -293,7 +299,7 @@ class DARES:
         entityData = {'id': entityID, 'type': entityType, 'data': req.json(), 'properties': []}
 
         if save2disk:
-            saveEntitiesData(savepath=self.project_path, entityData=entityData)
+            saveEntitiesData(savepath=self.folderpath, entityData=entityData)
             # with open(f"{savepath}/{entityID}.json", 'w', encoding='utf-8') as f:
             #     json.dump(data, f, indent=4)
 
@@ -379,7 +385,7 @@ class DARES:
             entityData['labels'] = labels
 
             if save2disk:
-                saveEntitiesData(savepath=self.project_path, entityData=entityData)
+                saveEntitiesData(savepath=self.folderpath, entityData=entityData)
 
                 # with open(f"{savepath}/{entityData['id']}.json", 'w', encoding='utf-8') as f:
                 #     json.dump(entityData, f, indent=4)
@@ -461,7 +467,7 @@ class DARES:
             del entityData['wikipedia']['doc']
 
             if save2disk:
-                saveEntitiesData(savepath=self.project_path, entityData=entityData)
+                saveEntitiesData(savepath=self.folderpath, entityData=entityData)
 
                 # with open(f"{savepath}/{entityData['id']}.json", 'w', encoding='utf-8') as f:
                 #     json.dump(entityData, f, indent=4)
@@ -543,7 +549,7 @@ class DARES:
         entityID = entityData['id']
         data = entityData['data']['entities'][entityID]['claims']
 
-        ent_prop = [x for x in self.dict_rel if x['type'] == entityData['type']][0]
+        ent_prop = [x for x in self.entities if x['type'] == entityData['type']][0]
         # print(entityID, entityData['type'], ent_prop)
         # if propertyID in data:
         for propertyID in ent_prop['props'].keys():
@@ -610,7 +616,7 @@ class DARES:
                 # entityData['properties'][propertyID] = list_propvalues
 
         if save2disk:
-            saveEntitiesData(savepath=self.project_path, entityData=entityData)
+            saveEntitiesData(savepath=self.folderpath, entityData=entityData)
 
             # with open(f"{savepath}/{entityData['id']}.json", 'w', encoding='utf-8') as f:
             #     json.dump(entityData, f, indent=4)
@@ -767,7 +773,7 @@ class DARES:
             prop_data['sents'] = selected_sents
 
         if save2disk:
-            saveEntitiesData(savepath=self.project_path, entityData=entityData)
+            saveEntitiesData(savepath=self.folderpath, entityData=entityData)
 
             # with open(f"{savepath}/{entityData['id']}.json", 'w', encoding='utf-8') as f:
             #     json.dump(entityData, f, indent=4)
@@ -846,7 +852,7 @@ class DARES:
 
 
         if save2disk:
-            saveEntitiesData(savepath=self.project_path, entityData=entityData)
+            saveEntitiesData(savepath=self.folderpath, entityData=entityData)
 
             # with open(f"{savepath}/{entityData['id']}.json", 'w', encoding='utf-8') as f:
             #     json.dump(entityData, f, indent=4)
@@ -875,7 +881,7 @@ class DARES:
 
         return list_entities_data
  
-    def processListEntities(self, source_doc:str='wikipedia', score_cutoff:int=90, getOther:bool = False, maxsizesent:bool=False, maxsize:int = 0,n_core:int=4, save2disk : bool = True, return_results:bool=False) -> List[dict]:
+    def processListEntities(self,  save2disk : bool = True, return_results:bool=False) -> List[dict]:
         """
         Wrapper function to process list of entities ID obtained from WikidataLinks obtained with WhatLinksHere
 
@@ -898,6 +904,14 @@ class DARES:
         :return: Processed entity with their data
         :rtype: dict
         """
+
+        n_core = self.n_core
+        source_doc = self.parameters['source_doc']
+        score_cutoff = self.parameters['score_cutoff']
+        getOther = self.parameters['getOther']
+        maxsizesent = self.parameters['maxsizesent']
+        maxsize = 0 
+
         maxstep = 5
         if getOther:
             maxstep = 6
@@ -939,19 +953,19 @@ class DARES:
         if return_results:
             return list_entities_data
     
-    def extract_sdp(self, removeNoMatch:bool=True, keep_filter_prop:List[str]=[], n_core:int=4) :
+    def extract_sdp(self, keep_filter_prop:List[str]=[]) :
         
+        n_core = self.n_core
+        removeNoMatch = self.parameters['removeNoMatch']
         if keep_filter_prop:
             keep_filter_prop = keep_filter_prop
         else: 
             # keep_filter_prop = list(self.relation_names.keys())
             keep_filter_prop = [x['label'] for x in self.relation_names.values()]
         
-        # print(keep_filter_prop)
         corpus = self.tp.prepare_corpus(list_entities_data=self.list_entities_data, removeNoMatch=removeNoMatch, keep_filter_prop=keep_filter_prop, n_core=n_core)
-        # print(corpus)
         
-        corpus = self.tp.processCorpus(corpus=corpus, savepath=self.project_path)
+        corpus = self.tp.processCorpus(corpus=corpus, savepath=self.folderpath)
         
 
         # print("Length corpus:", len(corpus)) 
