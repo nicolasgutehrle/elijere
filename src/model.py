@@ -13,6 +13,8 @@ from sklearn.feature_extraction.text import TfidfTransformer
 import networkx as nx
 from collections import Counter
 from networkx.algorithms.isomorphism import DiGraphMatcher
+import spacy
+# import fuzzyMatch 
 
 from .utils import nodeEq, edgeEq, getRelationNames, getNodeText, vizGraph, doc2graph, node_subst_cost, node_del_cost, node_ins_cost, edge_subst_cost, edge_del_cost, edge_ins_cost
 # getGraphPaths
@@ -628,9 +630,9 @@ class SemanticIndex():
 
 
 
-class IndexModel:
+class ELIJERE:
 
-    def __init__(self, extractor, classifier, we=None) -> None:
+    def __init__(self, extractor=None, classifier=None, we=None, ) -> None:
         """
         Constructor for the IndexModel class
 
@@ -641,11 +643,58 @@ class IndexModel:
         """
         self.extractor = extractor
         self.classifier = classifier
+        
         self.we = we
         if self.we:
             self.mlClassifier = True
         else:
             self.mlClassifier = False
+
+    def fit(self, data, anchor_textvalue:List[str]=['text'], support:int=0, removePROPN:bool=True, savepath:str=''):
+        
+        print('Building Syntactic Index...')
+        syntactic_index_params = {
+            # data to use for building the index
+            "list_graphs": data['X_train'],
+            # surface form of the predicates
+            "anchor_textvalue": anchor_textvalue,
+            # which graph to use as lexico-syntactic pattern
+            "graphkey": 'sdpgraph',
+            # key to use for relation label
+            "propkey": 'prop',
+            # minimum support for each relation per pattern
+            "support": support,
+            # "dict_rel": dict_rel,
+            "savepath": savepath
+        }
+
+        self.extractor = SyntacticIndex()
+        self.extractor.trainSyntacticIndex(**syntactic_index_params)
+        print('Building Syntactic Index done !')
+
+        print('Building Lexical Index...')
+        semantic_index_params = {
+            "list_graphs": data['X_train'],
+            "textvalue":  anchor_textvalue,
+            # "dict_rel": dict_rel,
+            "removePROPN": removePROPN,
+            "savepath": savepath
+
+        }
+
+        self.classifier = SemanticIndex()
+        self.classifier.trainSemanticIndex(**semantic_index_params)
+        print('Building Lexical Index done !')
+
+    def load_model(self, path):
+        
+        with open(f"{path}/model/elijere_config.json", 'r', encoding='utf-8') as f:
+             
+            self.elijere_config = json.load(f)
+
+        self.extractor = SyntacticIndex(path)
+        self.classifier = SemanticIndex(path)
+        self.nlp = spacy.load(self.elijere_config['spacy_model'])
 
     def semanticClassification(self, candidate_graph: Graph, possible_labels: List[str] = [], thresh: float=.0, defaultPred:str='Other') -> dict:
         """
@@ -1249,18 +1298,19 @@ class IndexModel:
                 return process(node_text)
 
             else:
-                if fuzzyMatch:
-                    lvsht_dist = map(lambda x:(x, lvhst.distance(node_text, x)), list(self.extractor.syntacticIndex.keys()))
-                    lvsht_dist = filter(lambda x: x[1] == 1, lvsht_dist)
-                    candidates = []
-                    for c in lvsht_dist:
-                        # print(node_text, c)
+                return []
+                # if fuzzyMatch:
+                #     lvsht_dist = map(lambda x:(x, lvhst.distance(node_text, x)), list(self.extractor.syntacticIndex.keys()))
+                #     lvsht_dist = filter(lambda x: x[1] == 1, lvsht_dist)
+                #     candidates = []
+                #     for c in lvsht_dist:
+                #         # print(node_text, c)
                         
-                        candidates.extend(process(c[0]))
-                    return candidates
+                #         candidates.extend(process(c[0]))
+                #     return candidates
 
-                else:
-                    return []
+                # else:
+                #     return []
 
         all_candidates = map(getCandidatesFromNode, graph.nodes())
         # flattens the list
@@ -1279,6 +1329,9 @@ class IndexModel:
         :return: List of relations and entities extracted from Doc
         :rtype: List[dict]
         """
+
+        if isinstance(doc, str):
+            doc = self.nlp(doc)
 
         # converts doct to graph
         dict_graph = doc2graph(doc)
