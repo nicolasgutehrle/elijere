@@ -1,5 +1,7 @@
 # ELIJERE : Extensible, Lightweight and Interpretable Joint Extraction of Relations and Entities
 
+**NOTE : this package is still under development**
+
 ELIJERE is a method for the task of Joint Extraction of Relations and Entities. Unlike most methods for this task, which relies on deep-learning and Transformers architectures, this method relies on two linguistics resources : 
 * a Syntactic Index, which describes how a relation is expressed syntactically and what kind of entities are involved
 * a Lexical Index, which describes how a relation is expressed lexically 
